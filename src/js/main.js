@@ -5,7 +5,7 @@
  */
 
 (function (global, undefined) {
-	var version = 1.0,
+	var version = 'v1.0',
 		_labt = global.labt,
 		labt = function (webid, properties) {
 	        if ( global === this ) {
@@ -17,11 +17,11 @@
 	    };
 
     labt.fn = labt.prototype = {
+    	_version: version,
     	_defaults: {
     		cookieName: 'labt-user-id',
-			endpoint: '',
+			endpoint: 'dummy/stubend.json',
 			webid: '',
-			token: '',
 			userid: ''
 		},
 
@@ -32,47 +32,63 @@
 				cookieName = options.cookieName;
 			options.webid = webid;
 
-			//check if endpoints can be reached
 			//check if valid webid
 			if (webid) {
 				//check if new user, if yes, assign id
 				userid = options.userid = getCookie(cookieName);
 				
-				response = ajax(options.endpoint, {
+				ajax(options.endpoint, {
 					webid: webid,
 					userid: userid
-				});
+				}, function(responseText) {
+					response = JSON.parse(responseText);
 
-				if (parseResponse(response) && response.success) {
+					if (parseResponse(response) && response.success) {
 
-					if (userid === undefined || response.userid !== userid) {
-						//store id into cookie
-						userid = options.userid = response.userid;
-						setCookie(cookieName, userid);
+						if (userid === undefined || response.userid !== userid) {
+							//store id into cookie
+							userid = options.userid = response.userid;
+							setCookie(cookieName, userid);
+						}
+
+						//perform the actions from response
+						log('pending actions');
+					} else {
+						//log error
+						log(response.error || 'Invalid response');
 					}
-
-					//check if current user has particpated in any campaign for this page
-					//perform the actions from response
-				} else {
-					//log error
-					log(response.error || 'Invalid response');
-				}
+				});
 			}
-    	} 
+    	},
+
+    	getVersion: function () {
+    		return this._version;
+    	}
     };
 
-    function log(text) {
+    //logging
+    function log (text) {
     	console.log(text);
     }
 
-    function parseResponse(response) {
+    //javascript object types
+    var objectTypes = {
+    	Array: 'array',
+    	Boolean: 'boolean',
+    	String: 'string',
+    	Number: 'number',
+    	Object: 'object'
+    };
+
+    //check response from server
+    function parseResponse (response) {
     	var variable,
     		ret = true,
     		variables = {
-	    		success: boolean,
-	    		error: String,
-	    		userid: Number,
-	    		action: Object
+	    		success: objectTypes.Boolean,
+	    		error: objectTypes.String,
+	    		userid: objectTypes.Number,
+	    		action: objectTypes.Object
 	    	};
 
     	for (variable in response) {
@@ -84,7 +100,8 @@
     	return ret;
     }
 
-    function ajax(url, opts) {
+    //cross-browser ajax call
+    function ajax (url, opts, callback) {
 	    var xmlhttp;
 
 	    if (window.XMLHttpRequest) {
@@ -95,24 +112,25 @@
 	        xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
 	    }
 
-	    /*xmlhttp.onreadystatechange = function() {
+	    xmlhttp.onreadystatechange = function() {
 	        if (xmlhttp.readyState == 4) {
 				if(xmlhttp.status == 200){
-					success(xmlhttp.responseText);
+					callback(xmlhttp.responseText);
 				} else if(xmlhttp.status == 400) {
-					failure('There was an error 400');
+					log('There was an error 400');
 				} else {
-					failure('something else other than 200 was returned');
+					log('something else other than 200 was returned');
 				}
 	        }
-	    };*/
+	    };
 
-	    xmlhttp.open("GET", url, false);
+	    xmlhttp.open("GET", url, true);
 	    xmlhttp.send(opts);
 
 	    return xmlhttp.responseText;
 	}
 
+	//extend object with 2nd object
     function extend () {
 		var i, next, props, copy,
 			target = arguments[0] || {},
@@ -133,7 +151,8 @@
 		return target;
 	}
 
-	function setCookie(name, value, expires, path, domain, secure){
+	//set variable in cookies
+	function setCookie (name, value, expires, path, domain, secure){
 		cookieStr = name + "=" + escape(value) + "; ";
 		
 		if(expires){
@@ -153,6 +172,7 @@
 		document.cookie = cookieStr;
 	}
 
+	//get variable from cookies
 	function getCookie (cname) {
 		var name = cname + "=",
 			ca = document.cookie.split(';');
